@@ -1,0 +1,241 @@
+---
+title: "Week 8"
+subtitle: "Gaussian Mixture Models & EM"
+author: "Stéphan Adjarian, Charly Alizadeh, Anaïs Druart, Corentin Aernouts, Richard Aumasson, Nandy Bâ, Nicolas Tran-Hong"
+date: "`r format(Sys.time())`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+    toc_float: true
+    theme: cerulean
+    highlight: espresso
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# EM using mclust
+
+## GMM vs k-means
+
+```{r q1}
+data1 <- read.csv("data1.csv", sep=",")
+data2 <- read.csv("data2.csv", sep=",")
+
+colo1 = ifelse(data1$truth == 1, 'red', data1$truth)
+colo1 = ifelse(colo1 == 2, 'black', colo1)
+colo1 = ifelse(colo1 == 3, 'green', colo1)
+colo1 = ifelse(colo1 == 4, 'blue', colo1)
+
+colo2 = ifelse(data2$truth == 1, 'red', data2$truth)
+colo2 = ifelse(colo2 == 2, 'black', colo2)
+colo2 = ifelse(colo2 == 3, 'green', colo2)
+colo2 = ifelse(colo2 == 4, 'blue', colo2)
+
+par(mfrow=c(2,2))
+plot(data1$X1,data1$X2,
+     col=colo1,
+     pch=20,
+     xlab = 'X1',
+     ylab = 'X2',
+     main = 'Data1')
+plot(data2$X1,data2$X2,
+     col=colo2,
+     pch=20,
+     xlab = 'X1',
+     ylab = 'X2',
+     main = 'Data2')
+par(mfrow=c(1,1))
+```
+
+```{r q2}
+set.seed(10)
+km1 = kmeans(data1, centers = 4, iter.max = 20)
+km2 = kmeans(data2, centers = 4, iter.max = 20)
+
+colo1 = ifelse(km1$cluster == 1, 'red', km1$cluster)
+colo1 = ifelse(colo1 == 2, 'black', colo1)
+colo1 = ifelse(colo1 == 3, 'green', colo1)
+colo1 = ifelse(colo1 == 4, 'blue', colo1)
+
+colo2 = ifelse(km2$cluster == 1, 'red', km2$cluster)
+colo2 = ifelse(colo2 == 2, 'black', colo2)
+colo2 = ifelse(colo2 == 3, 'green', colo2)
+colo2 = ifelse(colo2 == 4, 'blue', colo2)
+
+par(mfrow=c(2,2))
+plot(data1$X1,data1$X2,
+     col=colo1,
+     pch=20,
+     xlab = 'X1',
+     ylab = 'X2',
+     main = 'Data1 (k-means)')
+plot(data2$X1,data2$X2,
+     col=colo2,
+     pch=20,
+     xlab = 'X1',
+     ylab = 'X2',
+     main = 'Data2 (k-means)')
+par(mfrow=c(1,1))
+
+```
+
+We can observe that the k-means is working really well for the data1 dataset, but for the data2 dataset there are a lot of errors.
+
+```{r q3}
+library(mclust)
+
+GMM1 = Mclust(data1[,1:2])
+GMM2 = Mclust(data2[,1:2])
+
+colo1 = ifelse(GMM1$classification == 1, 'red', GMM1$classification)
+colo1 = ifelse(colo1 == 2, 'black', colo1)
+colo1 = ifelse(colo1 == 3, 'green', colo1)
+colo1 = ifelse(colo1 == 4, 'blue', colo1)
+
+colo2 = ifelse(GMM2$classification == 1, 'red', GMM2$classification)
+colo2 = ifelse(colo2 == 2, 'black', colo2)
+colo2 = ifelse(colo2 == 3, 'green', colo2)
+colo2 = ifelse(colo2 == 4, 'blue', colo2)
+
+par(mfrow=c(2,2))
+plot(data1$X1,data1$X2,
+     col=colo1,
+     pch=20,
+     xlab = 'X1',
+     ylab = 'X2',
+     main = 'Data1 (GMM)')
+plot(data2$X1,data2$X2,
+     col=colo2,
+     pch=20,
+     xlab = 'X1',
+     ylab = 'X2',
+     main = 'Data2 (GMM)')
+par(mfrow=c(1,1))
+```
+
+We can observe that the model is way better than the one obtained with k-means
+
+```{r q4}
+summary(GMM2)
+```
+
+We can see that we have 4 clusters. We can also see the BIC, which is the one of the best fitting model, wich means it is the highest BIC.
+
+```{r q5}
+par(mfrow=c(2,2))
+plot(GMM1, what = "classification")
+plot(GMM1, what = "uncertainty")
+
+plot(GMM2, what = "classification")
+plot(GMM2, what = "uncertainty")
+par(mfrow=c(1,1))
+```
+
+We can see here the classification, which correspond to the gaussian distribution fitted to the data. The uncertainty shows us which points are uncertain, and therefore might be wrong
+
+```{r q6}
+par(mfrow=c(2,1))
+plot(GMM1, what = "BIC")
+plot(GMM2, what = "BIC")
+par(mfrow=c(1,1))
+```
+
+```{r q7}
+d2 = densityMclust(data2[,1:2])
+plot(d2, what = "density", type = "hdr")
+plot(d2, what = "density", type = "persp")
+
+```
+
+## EM on 1D
+
+```{r q8}
+v1 = c(rnorm(100,mean=0,sd=2))
+v2 = c(rnorm(100,mean=5,sd=1))
+v3 = c(rnorm(100,mean=-10,sd=3))
+
+v = c(v1,v2,v3)
+vvalues = c(rep(1,100),rep(2,100),rep(3,100))
+mat = cbind(v,vvalues)
+knitr::kable(mat[1:2,])
+
+```
+
+```{r q9}
+mat[,2]
+colo1 = ifelse(mat[,2] == 1, 'black', mat[,2])
+colo1 = ifelse(colo1 == 2, 'red', colo1)
+colo1 = ifelse(colo1 == 3, 'green', colo1)
+
+set.seed(10)
+stripchart(mat[,1] ~ colo1, pch=20, col = rainbow(length(unique(colo1))), vertical=FALSE)
+```
+
+```{r q10}
+hist(mat[,1])
+```
+
+```{r q11}
+GMM = Mclust(mat[,1])
+summary(GMM)
+
+colo = ifelse(GMM$classification == 1, 'red', GMM$classification)
+colo = ifelse(colo == 2, 'black', colo)
+colo = ifelse(colo == 3, 'green', colo)
+
+stripchart(mat[,1] ~ colo, pch=20, col = rainbow(length(unique(colo))), vertical=FALSE)
+
+```
+
+With summary(GMM), we can see that we don't have 100 for each cluster, even if we are close to it.
+
+```{r q12}
+d = densityMclust(mat[,1])
+plot(d, what = "density", type = "hdr")
+```
+
+We can identify well the 3 clusters.
+
+## EM from scratch
+
+```{r q2.1}
+v1 = c(rnorm(100,mean=0,sd=2))
+v2 = c(rnorm(100,mean=5,sd=1))
+v3 = c(rnorm(100,mean=-10,sd=3))
+v4 = c(rnorm(100,mean=-5,sd=1))
+v5 = c(rnorm(100,mean=10,sd=2))
+
+v6 = c(rnorm(100,mean=7,sd=2))
+v7 = c(rnorm(100,mean=-8,sd=1))
+v8 = c(rnorm(100,mean=-9,sd=3))
+v9 = c(rnorm(100,mean=-2,sd=1))
+v10 = c(rnorm(100,mean=1,sd=2))
+
+vx1 = c(v1,v2,v3,v4,v5)
+vx2 = c(v6,v7,v8,v9,v10)
+vvalues = c(rep(1,100),rep(2,100),rep(3,100),rep(4,100),rep(5,100))
+mat2 = cbind(vx1,vx2,vvalues)
+knitr::kable(mat2[1:2,])
+
+
+coloo = ifelse(mat2[,3] == 1, 'red', mat2[,3])
+coloo = ifelse(coloo == 2, 'black', coloo)
+coloo = ifelse(coloo == 3, 'green', coloo)
+coloo = ifelse(coloo == 4, 'blue', coloo)
+coloo = ifelse(coloo == 5, 'yellow', coloo)
+
+plot(vx1,vx2,
+     col=coloo,
+     pch=20,
+     xlab = 'X1',
+     ylab = 'X2',
+     main = 'EM from scratch')
+```
+
+
+
