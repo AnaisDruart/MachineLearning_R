@@ -1,0 +1,407 @@
+---
+title: "Practical Work 7: k-means & Hierarchical Clustering"
+author: "Stéphan Adjarian, Charly Alizadeh, Anaïs Druart, Corentin Aernouts, Richard Aumasson, Nandy Bâ, Nicolas Tran-Hong"
+date: ''
+output: 
+  prettydoc::html_pretty: 
+    toc: yes
+    theme: architect
+editor_options: 
+  chunk_output_type: console
+---
+
+## Libraries
+```{r setup, include=TRUE, comment='', results=FALSE, warning=FALSE, message = FALSE}
+library(factoextra) # DataViz for pca
+library(FactoMineR) # Pca
+library(knitr) # engine for dynamic report 
+library(ggplot2) # Better plots
+library(dplyr) # To extract dataframe colums (select function)
+library(prettydoc) # Better report layout
+```
+
+## setup
+
+### Question 1 
+
+```{r}
+color_palette = c("lightpink", "aquamarine3","royalblue")
+setwd("C:/Users/anais/Documents/Esilv/S7/Machine Learning/TD/TD7")
+ligue1 <- read.csv("http://mghassany.com/MLcourse/datasets/ligue1_17_18.csv", 
+                   row.names=1, sep=";")
+set.seed(18) 
+```
+
+## Exploratory analysis
+
+###  Question 2
+Print the first two rows of the dataset and the total number of features in this dataset.
+```{r Question 2, out.width=c('450px', '450px'), fig.show='hold'}
+kable(ligue1[1:2,1:5])
+ncol(ligue1)
+```
+
+## pointsCards
+
+### Question 3
+We will first consider a smaller dataset to easily understand the results of k-means. Create a new dataset in which you consider only `Points` and `Yellow.cards` from the original dataset. Name it `pointsCard`.
+```{r Question 3, results=FALSE, fig.align='center'}
+pointsCards= select(ligue1, Points,yellow.cards)
+plot(pointsCards,col=color_palette[3],pch=19,cex=2)
+```
+
+### Question 4
+Apply k-means on `pointsCards`. Chose k=2 clusters and put the number of iterations to 20. Store your results into `km`.
+```{r}
+km = kmeans(pointsCards, centers = 2, iter.max = 20)
+```
+
+### Question 5
+Print and describe what is inside `km`.
+```{r, comment=''}
+summary(km)
+str(km)
+```
+Inside km we have the cluster attribution of our observations, the centers of each cluster
+
+### Question 6
+What are the coordinates of the centers of the clusters (called also prototypes or centroids) ?
+```{r, comment=''}
+km$centers
+```
+
+### Question 7
+Plot the data (Yellow.cards vs Points). Color the points corresponding to their cluster.
+```{r, comment='', fig.align='center'}
+plot(pointsCards,col=km$cluster,pch=19,cex=2)
+```
+
+### Question 8
+Add to the previous plot the clusters centroids and add the names of the observations.
+```{r, comment='', fig.align='center'}
+plot(pointsCards,col=km$cluster,pch=19,cex=2, main="Kmean k=2")
+points(km$centers,col=1:3,pch=3,cex=3,lwd=3)
+text(pointsCards,labels=as.character(rownames(pointsCards)))
+```
+
+### Question 9
+Re-run k-means on pointsCards using 3 and 4 clusters and store the results into km3 and km4 respectively. Visualize the results like in question 7 and 8.
+```{r, comment='', fig.align='center'}
+km3 = kmeans(pointsCards, centers = 3, iter.max = 20)
+plot(pointsCards,col=km3$cluster,pch=19,cex=2, main="Kmean k=3")
+points(km3$centers,col=1:3,pch=3,cex=3,lwd=3)
+
+
+km4 = kmeans(pointsCards, centers = 4, iter.max = 20)
+plot(pointsCards,col=km4$cluster,pch=19,cex=2, main="Kmean k=4")
+points(km4$centers,col=1:4,pch=3,cex=3,lwd=3)
+```
+
+### Question 10
+Visualize the “within groups sum of squares” of the k-means clustering results (use the code in the link above).
+```{r, comment='', fig.align='center'}
+wss <- (nrow(pointsCards)-1)*sum(apply(pointsCards,2,var))
+  for (i in 1:15) wss[i] <- sum(kmeans(pointsCards,
+                                       centers=i)$withinss)
+plot(1:15, wss, type="b", xlab="Number of Clusters",
+     ylab="Within groups sum of squares", main = "Elbow method")
+```
+
+### Question 11
+Modify the code of the previous question in order to visualize the ‘between_SS / total_SS’. Interpret the results.
+```{r}
+for (i in 1:15){
+  wss[i] <- kmeans(pointsCards,centers=i)$betweenss/kmeans(pointsCards,centers=i)$totss
+}
+plot(1:15, wss, type="b", xlab="Number of Clusters",
+     ylab="between_SS / total_SS", main = "Elbow method")
+```
+
+We observe the elbow for k=4. The rate of decrease/increase drops drastically after k=4. Therefore the best value for k is 4.
+
+## Ligue 1
+
+### Question 12
+Scale the dataset and transform it to a data frame again. Store the scaled dataset into `ligue1_scaled`.
+```{r, comment=''}
+ligue1_scaled = data.frame(scale(ligue1))
+kable(ligue1_scaled[1:5,1:5])
+```
+
+
+### Question 13
+Apply `kmeans()` on `ligue1` and on `ligue1_scaled` using 3 clusters and 20 iterations. Store the results into `km.ligue1` and `km.ligue1.scaled` respectively (do not forget to set a seed)
+```{r, comment=''}
+km.ligue1 <- kmeans(ligue1, centers = 3, iter.max = 20)
+km.ligue1.scaled <- kmeans(ligue1_scaled, centers = 3, iter.max = 20)
+```
+
+### Question 14
+How many observations there are in each cluster of km.ligue1 and km.ligue1.scaled ? (you can use table()). Do you obtain the same results when you perform kmeans() on the scaled and unscaled data?
+```{r}
+km.ligue1$cluster
+table(km.ligue1$cluster)
+km.ligue1.scaled$cluster
+table(km.ligue1.scaled$cluster)
+```
+
+## PCA
+
+### Question 15
+Apply `PCA` on ligue1 dataset and store you results in `pcaligue1`. Do we need to apply PCA on the scaled dataset? Justify your answer.
+```{r, fig.align='center'}
+pcaligue1 = PCA(ligue1, scale.unit = TRUE, ncp = 5, graph = TRUE)
+```
+
+
+### Question 16
+Plot the observations and the variables on the first two principal components (biplot). Interpret the results.
+```{r, fig.align='center'}
+fviz_pca_biplot(pcaligue1)
+```
+There seem to be 4 tendencies for variables:
+
+- The "losing" ensemble, with a low Comp1 value 
+
+- The "winning" ensemble, on the opposite, with a high Comp1 value
+
+- Draws, with a medium comp1 value, but a low comp2 value, which seems to be correlated with yellow cards
+
+- red cards, related to the sum of fouls against, with a high comp2 value.
+
+Winning and losing are negatively correlated.
+Draws and Red cards are negatively correlated too.
+
+For teams, the lower Comp1, the less likely they are to winning, and the lower Comp2, the more likely they are to have taken yellow cards, and have an important number of Draws.
+
+### Question 17
+Visualize the teams on the first two principal components and color them with respect to their cluster.
+```{r, fig.align='center'}
+fviz_cluster(km.ligue1, data = ligue1, # km.ligue1 is where you stored your kmeans results
+             palette = c("red", "blue", "green"), # 3 colors since 3 clusters
+             ggtheme = theme_minimal(),
+             main = "Clustering Plot"
+)
+fviz_contrib(pcaligue1, choice = "var", axes = 1:2, top = 10)
+```
+
+
+### Question 18
+Recall that the figure of question 17 is a visualization with PC1 and PC2 of the clustering done with all the variables, not on PC1 and PC2. Now apply the `kmeans()` clustering taking only the first two PCs instead the variables of original dataset. Visualize the results and compare with the question 17.
+```{r}
+X1 = c(1,1,0,5,6,4)
+X2 = c(4,3,4,1,2,0)
+
+dataset = data.frame(X1,X2)
+```
+
+## Implementing k-means
+
+### Question 19
+Plot the observations.
+```{r, fig.align='center'}
+plot(dataset, col=color_palette[3],pch=19,cex=2, main="Observations")
+```
+
+### Question 20
+Randomly assign a cluster label to each observation. You can use the `sample()` command in  to do this. Report the cluster labels for each observation.
+```{r}
+cluster_assignement = sample(c("Cluster 1","Cluster 2"), nrow(dataset), 
+                             prob = c(0.50,0.50), replace = TRUE)
+dataset = cbind(dataset,cluster_assignement)
+```
+
+### Question 21
+Compute the centroid for each cluster.
+```{r}
+CENTROIDE = function(dataset)
+{
+  data_in_1 = 0
+  sum_X1_1 = 0
+  sum_X2_1 = 0
+  
+  data_in_2 = 0
+  sum_X1_2 = 0
+  sum_X2_2 = 0
+  
+  for (i in 1:nrow(dataset))
+  {
+    if (dataset$cluster_assignement[i] == "Cluster 1")
+    {
+      data_in_1 = data_in_1 + 1
+      sum_X1_1 = sum_X1_1 + dataset$X1[i]
+      sum_X2_1 = sum_X2_1 + dataset$X2[i]
+    }
+    else
+    {
+      data_in_2 = data_in_2 + 1
+      sum_X1_2 = sum_X1_2 + dataset$X1[i]
+      sum_X2_2 = sum_X2_2 + dataset$X2[i]
+    }
+  }
+  
+  centroide_1 = c(sum_X1_1 / data_in_1 , sum_X2_1 / data_in_1)
+  centroide_2 = c(sum_X1_2 / data_in_2 , sum_X2_2 / data_in_2)
+  return(c(centroide_1, centroide_2))
+}
+```
+
+### Question 22
+Create a function that calculates the Euclidean distance for two observations.
+```{r}
+EUCLIDEAN_DISTANCE = function(X,Y)
+{
+  #d = sqrt((X[1] - Y[1])**2 + (X[2] - Y[2])**2)
+  return(sqrt((X[1] - Y[1])**2 + (X[2] - Y[2])**2))
+}
+```
+
+### Question 23,24 and 25
+Assign each observation to the centroid to which it is closest, in terms of Euclidean distance. Report the cluster labels for each observation.
+Repeat 21 and 23 until the answers obtained stop changing.
+In your plot from 19, color the observations according to the cluster labels obtained.
+```{r, warning=FALSE, fig.align='center'}
+same = FALSE
+while (same == FALSE)
+{
+  new_cluster_assignement = dataset$cluster_assignement
+    
+  # calculer les nouveaux centroides
+  result = CENTROIDE(dataset)
+  
+  cento1 = c(result[1], result[2])
+  cento2 = c(result[3], result[4])
+  # calsculer nouvelle affectation cluster
+  
+  # pour tout les points du dataset
+  for (i in 1:nrow(dataset))
+  {
+    if (EUCLIDEAN_DISTANCE(cento1,c(dataset$X1[i],dataset$X2[i])) <
+        EUCLIDEAN_DISTANCE(cento2,c(dataset$X1[i],dataset$X2[i])))
+    {
+      new_cluster_assignement[i] = "Cluster 1"
+    }
+    else
+    {
+      new_cluster_assignement[i] = "Cluster 2"
+    }
+  }
+  
+  # si cela n'a pas change, enterme de couleur
+  if (new_cluster_assignement == dataset$cluster_assignement)
+  {
+     same = TRUE
+  }
+  
+  
+  
+  dataset$cluster_assignement = new_cluster_assignement
+  
+  # afficher
+  plot(dataset$X1, dataset$X2, pch=19, cex=2, 
+       col = ifelse(dataset$cluster_assignement == "Cluster 1", 
+                    color_palette[1],color_palette[3]))
+  points(result[1],result[2], col = color_palette[1], pch=3, lwd = 3, cex=2)
+  points(result[3],result[4], col = color_palette[3], pch=3, lwd = 3, cex=2)
+  Sys.sleep(2.5)
+}
+```
+
+## Hierarchical clustering on Iris dataset
+
+### Question 1
+Download the iris dataset from here  and import it into R.
+```{r}
+dataset_IRIS <- read.csv("iris.data")
+```
+
+### Question 2
+Choose randomly 40 observations of the iris dataset and store the sample dataset into `sampleiris`.
+```{r}
+index <- sample(1:nrow(dataset_IRIS), 40)
+sampleiris = dataset_IRIS[index,]
+```
+
+### Question 3
+Calculate the euclidean distances between the flowers. Store the results in a matrix called `D`. (Remark: the last column of the dataset is the class labels of the flowers)
+```{r}
+D = dist(sampleiris[1:40,1:3])
+```
+
+### Question 4
+Construct a dendrogram on the iris dataset using the method average. Store the result in `dendro.avg`.
+```{r}
+dendro.avg = hclust(D, method = "average")
+```
+
+### Question 5
+Plot the dendrogram.
+```{r, fig.align='center'}
+plot(dendro.avg)
+```
+
+### Question 6
+Plot again the dendrogram using the following command:
+```{r, fig.align='center'}
+plot(dendro.avg, hang=-1, label=sampleiris$class)
+```
+
+### Question 7
+To cut the dendrogram and obtain a clustering use the `cutree`. You can choose the number of clusters you wish to obtain, or you can cut by choosing the height from the dendrogram figure. Cut the dendrogram in order to obtain 3 clusters. Store the results into vector `groups.avg`.
+```{r}
+groups.avg = cutree(dendro.avg, k = 3)
+```
+
+
+### Question 8
+Visualize the cut tree using the function `rect.hclust()`. You can choose the colors of the rectangles too!
+```{r, fig.align='center'}
+plot(dendro.avg, hang=-1, label=sampleiris$class)
+rect.hclust(dendro.avg, k = 3, border = 25)
+```
+
+### Question 9
+Compare the obtained results obtained with Hierarchical clustering and the real class labels of the flowers (function `table()`). Interpret the results.
+```{r}
+table(groups.avg) 
+table(sampleiris$class)
+```
+
+### Question 10
+Now apply the Hierarchical clustering on the iris dataset (the 150 observations). Choose 3 clusters and compare the results with the real class labels. Compare different methods of Hierarchical clustering (average, complete and single linkages).
+```{r, fig.align='center'}
+D_all = dist(dataset_IRIS[1:150,1:3])
+
+dataset_IRIS_dendro.avg = hclust(D_all, method = "average")
+plot(dataset_IRIS_dendro.avg)
+
+plot(dataset_IRIS_dendro.avg, hang=-1, label=dataset_IRIS$class)
+dataset_IRIS_groups.avg = cutree(dataset_IRIS_dendro.avg, k = 3)
+rect.hclust(dataset_IRIS_dendro.avg, k = 3, border = 25)
+
+table(dataset_IRIS_groups.avg)
+table(dataset_IRIS$class)
+
+dataset_IRIS_dendro.comp = hclust(D_all, method = "complete")
+plot(dataset_IRIS_dendro.comp)
+
+plot(dataset_IRIS_dendro.comp, hang=-1, label=dataset_IRIS$class)
+dataset_IRIS_groups.comp = cutree(dataset_IRIS_dendro.comp, k = 3)
+rect.hclust(dataset_IRIS_dendro.comp, k = 3, border = 25)
+
+table(dataset_IRIS_groups.comp)
+table(dataset_IRIS$class)
+
+dataset_IRIS_dendro.sgl = hclust(D_all, method = "single")
+plot(dataset_IRIS_dendro.sgl)
+
+plot(dataset_IRIS_dendro.sgl, hang=-1, label=dataset_IRIS$class)
+dataset_IRIS_groups.sgl = cutree(dataset_IRIS_dendro.sgl, k = 3)
+rect.hclust(dataset_IRIS_dendro.sgl, k = 3, border = 25)
+
+table(dataset_IRIS_groups.sgl)
+table(dataset_IRIS$class)
+```
+
+
+
